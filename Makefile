@@ -1,8 +1,8 @@
-BUILD_DIR=build
+BIN_DIR=bin
 SRC_DIR=src
 IN_FILE=${SRC_DIR}/boot.s
-OUT_FILE=${BUILD_DIR}/boot.o
-PROJECT_NAME=snakeos
+OUT_FILE=${BIN_DIR}/boot.o
+PROJECT_NAME=${BIN_DIR}/snakeos
 ENTRY_SYMBOL=_start
 
 all:
