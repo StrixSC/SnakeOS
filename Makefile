@@ -1,10 +1,13 @@
-BIN_DIR=bin
+BIN_DIR=build
 SRC_DIR=src
-IN_FILE=${SRC_DIR}/boot.s
-OUT_FILE=${BIN_DIR}/boot.o
-PROJECT_NAME=${BIN_DIR}/snakeos
+IN_FILE=snakeos.s
+PROJECT_NAME=snakeos
 ENTRY_SYMBOL=_start
 
 all:
-	as -o ${OUT_FILE} ${IN_FILE}
-	ld -o ${PROJECT_NAME} --format binary --entry ${ENTRY_SYMBOL} ${OUT_FILE}
+	mkdir -p ${BIN_DIR}
+	as -o ${BIN_DIR}/${PROJECT_NAME}.o ${SRC_DIR}/${PROJECT_NAME}.s
+	ld -o ${BIN_DIR}/${PROJECT_NAME} --oformat binary --entry ${ENTRY_SYMBOL} ${BIN_DIR}/${PROJECT_NAME}.o
+	ls -lh ${BIN_DIR}/${PROJECT_NAME}
+clean:
+	rm -rf ${BIN_DIR}/*.o ${BIN_DIR}/*.out ${BIN_DIR}/*.bin ${BIN_DIR}/${PROJECT_NAME}
