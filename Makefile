@@ -6,7 +6,7 @@ ENTRY_SYMBOL=_start
 
 all:
 	mkdir -p ${BIN_DIR}
-	as -o ${BIN_DIR}/${PROJECT_NAME}.o ${SRC_DIR}/${PROJECT_NAME}.s
+	as -msyntax=intel -o ${BIN_DIR}/${PROJECT_NAME}.o ${SRC_DIR}/${PROJECT_NAME}.s
 	ld -o ${BIN_DIR}/${PROJECT_NAME} --oformat binary --entry ${ENTRY_SYMBOL} ${BIN_DIR}/${PROJECT_NAME}.o
 	ls -lh ${BIN_DIR}/${PROJECT_NAME}
 clean:
