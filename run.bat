@@ -1,1 +1,1 @@
-bash -c "make && qemu-system-x86_64.exe ./build/snakeos"
+bash -c "make && make run"

@@ -1,11 +1,8 @@
-BIN_DIR=build
-SRC_DIR=src
-IN_FILE=snakeos.asm
-PROJECT_NAME=snakeos
+.PHONY: all
 
 all:
-	mkdir -p ${BIN_DIR}
-	nasm -f bin -o ${BIN_DIR}/${PROJECT_NAME} ${SRC_DIR}/${IN_FILE}
-	ls -lh ${BIN_DIR}/${PROJECT_NAME}
+	nasm -f bin -o snakeos snakeos.asm
+run:
+	qemu-system-x86_64.exe -drive file=snakeos,format=raw,index=0,media=disk
 clean:
 	rm -rf ${BIN_DIR}/*.o ${BIN_DIR}/*.out ${BIN_DIR}/*.bin ${BIN_DIR}/${PROJECT_NAME}
