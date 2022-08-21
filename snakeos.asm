@@ -1,76 +1,68 @@
+bits 16
 org 7C00h
 
-WIDTH equ 320
-HEIGHT equ 200
-COLS equ 40 
-ROWS equ 25
-APPLE_SIZE equ 5
-BG_COLOR equ 11h 
+WIDTH       equ 320
+HEIGHT      equ 200
+COLS        equ 40 
+ROWS        equ 25
+APPLE_SIZE  equ 5
+BG_COLOR    equ 11h 
 APPLE_COLOR equ 0Ch
 SNAKE_COLOR equ 0Ah
+variables   equ 0FA00h
+snake_size  equ 0FA00h
+snake_x     equ 0FB00h
+snake_y     equ 0FC00h
+snake_dx    equ 0FD00h
+snake_dy    equ 0FE00h
+apple_x     equ 0FF00h
+apple_y     equ 10000h
 
+;; SETUP:
 Setup:
-        mov ax, 00h
-        mov ds, ax
-        mov ax, 00013h ; mode 13h (VGA) 320x200x256 (320 columns, 200 rows, 256 colors).
-        int 10h
-        push 0A000h
-        pop es
-        jmp short GameLoop
+    mov ax, 0013h
+    int 10h
+    push 0A000h
+    pop es  ; ES now points to 0A000h (see mode 13h VGA docs to understand video memory)
+    mov ax, variables   ; Set the destination index to the variables address
+    shr ax, 4
+    mov dx, ax
+    mov si, Data        ; Take the address of the Data label as the source index
+    mov cx, 7           ; Set the counter to 7, for the 7 variables that we have.
+    rep movsb           ; Move the values from si into di and increment edi repeatedly.
 
 FillScreen:
-        mov cx, WIDTH*HEIGHT    ; Set cx to 64000
-        xor di, di              ; reset di to 0
-        rep stosb               ; Write AL to [DI] a total of CX times.
-        ret
-
-ClearScreen:
-        mov al, 00h             ; set color to VGA Black
-        call FillScreen  
-        ret
-
-DrawApple:
-        inc cx          
-        mov ax, cx
-        sub ax, [apple_x]
-        cmp ax, APPLE_SIZE
-        jng DrawApple 
-        mov cx, [apple_x]
-        inc dx
-        mov ax, dx
-        sub ax, [apple_y]
-        cmp ax, APPLE_SIZE
-        jng DrawApple
-        mov al, APPLE_COLOR
-        ret
-
+    mov ax, [snake_size]
+    mov cx, WIDTH*HEIGHT ; set cx to 64000 and use it with stosb to set destination register (di) values
+    xor di, di
+    rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
+    
 GameLoop:
-        mov al, BG_COLOR
-        call FillScreen
-        ; mov [apple_y], word 100
-        ; mov [apple_x], word 200
-        mov al, APPLE_COLOR
-        mov cx, [apple_x]
-        mov dx, [apple_y]
-        ; call DrawApple
-        int 10h
-        ; TODO: DrawSnake
-        ; TODO: Move Snake
-        ; TODO: Check Collision
-                ; TODO: Snake + Wall
-                ; TODO: Snake + Apple
-        ; TODO: Get player input
-        jmp GameLoop
+    Delay:
+    mov ax, [046Ch]  ; 046C address contains the real clock timer logged by the BIOS
+    inc ax           ; increment ax until ax matches the current time + 1 tick. 
+    .wait:
+    cmp [046Ch], ax
+    jl .wait
 
-times 0200h - 02h - ($ - $$) db 0
+    call FillScreen ; After filling screen, edi -> 0FA00h
+
+    ; Draw Apple
+    jmp GameLoop
+
+times 510-($-$$) db 0
+; Boot signature
 dw 0AA55h
 
-snake_size:             dw 1
-snake_orientation:      dw 0
-snake_velocity:         dw 1
-snake_x:                dw 0
-snake_y:                dw 0
-snake_dx:               dw 0
-snake_dy:               dw 0
-apple_x:                dw WIDTH/2
-apple_y:                dw HEIGHT/2
+;; Data Segment
+Data: 
+db BG_COLOR ; snake_size
+db 0 ; snake_x
+db 0 ; snake_y
+db 1 ; snake_dx
+db 1 ; snake_dy
+db WIDTH/2 ; apple_x
+db HEIGHT/2 ; apple_y
+
+cli
+hlt
