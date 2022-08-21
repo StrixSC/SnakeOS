@@ -24,12 +24,12 @@ Setup:
     int 10h
     push 0A000h
     pop es  ; ES now points to 0A000h (see mode 13h VGA docs to understand video memory)
-    mov ax, variables   ; Set the destination index to the variables address
-    shr ax, 4
-    mov dx, ax
-    mov si, Data        ; Take the address of the Data label as the source index
-    mov cx, 7           ; Set the counter to 7, for the 7 variables that we have.
-    rep movsb           ; Move the values from si into di and increment edi repeatedly.
+    mov di, variables
+    mov si, Data        
+    mov cl, 7           
+    rep movsw           
+    push es
+    pop ds
 
 FillScreen:
     mov ax, [snake_size]
@@ -50,19 +50,16 @@ GameLoop:
     ; Draw Apple
     jmp GameLoop
 
-times 510-($-$$) db 0
-; Boot signature
-dw 0AA55h
-
 ;; Data Segment
 Data: 
 db BG_COLOR ; snake_size
-db 0 ; snake_x
-db 0 ; snake_y
-db 1 ; snake_dx
-db 1 ; snake_dy
+db 00h ; snake_x
+db 00h ; snake_y
+db 01h ; snake_dx
+db 01h ; snake_dy
 db WIDTH/2 ; apple_x
 db HEIGHT/2 ; apple_y
 
-cli
-hlt
+times 510-($-$$) db 0
+dw 0AA55h
+
