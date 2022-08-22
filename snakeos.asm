@@ -51,27 +51,44 @@ FillScreen:
     ;;      printf(int 10h)
     ;;  }
     ;;
+; DrawApple:
+;     mov cx, [apple_x]
+;     mov dx, [apple_y]
+;     mov ah, 0Ch
+;     int 10h
+;     xor bl, bl
+;     .DrawAppleY:
+;         cmp bl, APPLE_SIZE
+;         je .end
+;         int 10h
+;         inc dx
+;         inc bl
+;         xor al, al
+;         .DrawAppleX:
+;             cmp al, APPLE_SIZE
+;             je .DrawAppleY   
+;             int 10h
+;             inc cx
+;             inc al
+;     .end:
+;         ret
+
 DrawApple:
     mov cx, [apple_x]
     mov dx, [apple_y]
-    mov ah, 0Ch
-    int 10h
-    xor bl, bl
-    .DrawAppleY:
-        cmp bl, APPLE_SIZE
-        je .end
-        int 10h
-        inc dx
-        inc bl
-        xor al, al
-        .DrawAppleX:
-            cmp al, APPLE_SIZE
-            je .DrawAppleY   
-            int 10h
-            inc cx
-            inc al
-    .end:
-        ret
+    mov ax, APPLE_COLOR
+    push ds
+    push 0A000h
+    pop ds
+    start:
+    mov sp, 0
+    mov bx, cx
+    add bx, 320*(HEIGHT/2)
+    mov [bx], ax
+    inc cx
+    jl start
+    pop ds
+    ret
 
 GameLoop:
     call FillScreen ; After filling screen, edi -> 0FA00h
