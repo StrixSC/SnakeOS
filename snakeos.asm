@@ -6,7 +6,7 @@ HEIGHT          equ 200
 COLS            equ 40 
 ROWS            equ 25
 COL_ROW_SIZE    equ 8
-APPLE_SIZE      equ 4
+APPLE_SIZE      equ 10
 BG_COLOR        equ 11h 
 APPLE_COLOR     equ 0Ch
 SNAKE_COLOR     equ 0Ah
@@ -43,52 +43,47 @@ FillScreen:
     rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
     ret
 
-    ;;
-    ;;  position_x = *apple_x
-    ;;  for(int i = 0; i < APPLE_SIZE; i++) 
-    ;;  {
-    ;;      position_x++
-    ;;      printf(int 10h)
-    ;;  }
-    ;;
-; DrawApple:
-;     mov cx, [apple_x]
-;     mov dx, [apple_y]
-;     mov ah, 0Ch
-;     int 10h
-;     xor bl, bl
-;     .DrawAppleY:
-;         cmp bl, APPLE_SIZE
-;         je .end
-;         int 10h
-;         inc dx
-;         inc bl
-;         xor al, al
-;         .DrawAppleX:
-;             cmp al, APPLE_SIZE
-;             je .DrawAppleY   
-;             int 10h
-;             inc cx
-;             inc al
-;     .end:
-;         ret
-
 DrawApple:
     mov cx, [apple_x]
+    sub cx, APPLE_SIZE/2
+    mov [apple_x], cx
     mov dx, [apple_y]
-    mov ax, APPLE_COLOR
-    push ds
-    push 0A000h
-    pop ds
-    start:
-    mov sp, 0
-    mov bx, cx
-    add bx, 320*(HEIGHT/2)
-    mov [bx], ax
+    sub dx, APPLE_SIZE/2
+    mov [apple_y], dx
+    mov ax, 0c0ch
+
+DrawSquare:
+    int 10h
     inc cx
-    jl start
-    pop ds
+    mov bx, cx
+    sub bx, [apple_x]
+    cmp bx, APPLE_SIZE
+    jb DrawSquare
+    mov cx, [apple_x]
+    inc dx
+    mov bx, dx
+    sub bx, [apple_y]
+    cmp bx, APPLE_SIZE
+    jb DrawSquare
     ret
+
+; DrawSquare:
+;     xor bx, bx
+;     jmp short draw_cols
+;     draw_rows:
+;         inc bx
+;         push bx
+;         cmp [sp], [sp-1]
+;         draw_cols:
+;             cmp bx, [sp]
+;             je draw_rows
+;             push ax
+;             int 10h
+;             pop ax
+;             inc cx
+;             jmp draw_cols
+;     reset:
+;         pop bx
 
 GameLoop:
     call FillScreen ; After filling screen, edi -> 0FA00h
