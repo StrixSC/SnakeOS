@@ -1,17 +1,21 @@
 bits 16         ; Switch to 16 bit real mode
 org 7C00h
 
-WIDTH           equ 320
-HEIGHT          equ 200
-COLS            equ 32 
-ROWS            equ 20
-SLOT_WIDTH      equ 10
-APPLE_SIZE      equ 1
-BG_COLOR        equ 11h
-APPLE_COLOR     equ 0Ch
-SNAKE_COLOR     equ 0Ah
-TIMER           equ 046Ch
-VGA_START       equ 0A000h
+WIDTH                   equ 320
+HEIGHT                  equ 200
+COLS                    equ 32 
+ROWS                    equ 20
+SLOT_WIDTH              equ 10
+APPLE_SIZE              equ 1
+BG_COLOR                equ 11h
+APPLE_COLOR             equ 0Ch
+SNAKE_COLOR             equ 0Ah
+TIMER                   equ 046Ch
+VGA_START               equ 0A000h
+SNAKE_DIR_UP            equ 00h
+SNAKE_DIR_DOWN          equ 01h
+SNAKE_DIR_RIGHT         equ 10h
+SNAKE_DIR_LEFT          equ 11h
 
 ; Variable addresses:
 snake_size      equ 0FA00h 
@@ -36,9 +40,10 @@ Setup:
     pop ds      ; We want DS to point to the data that we just moved.
 
 GameLoop:
+    mov ax, BG_COLOR
     call FillScreen
+    call GetPlayerInput
     call UpdateFrame
-    call CheckCollision
     call DrawApple
     call DrawSnake
     Delay:
@@ -51,16 +56,39 @@ GameLoop:
 
 UpdateFrame:
     mov ax, [snake_direction]
-    cmp ax, 00h
-    jne Snake_MoveVertically
+    cmp ax, SNAKE_DIR_DOWN
+    jz MoveSnake_Down
+    cmp ax, SNAKE_DIR_UP
+    jz MoveSnake_Up
+    cmp ax, SNAKE_DIR_RIGHT
+    jz MoveSnake_Right
     mov ax, [snake_x]
-    inc ax
+    dec ax
+    cmp ax, 00h
+    jz GameOver
     mov [snake_x], ax
     jmp short UpdateFrameEnd
-    Snake_MoveVertically:
+    MoveSnake_Right:
+    mov ax, [snake_x]
+    inc ax
+    cmp ax, WIDTH
+    jz GameOver
+    mov [snake_x], ax
+    jmp short UpdateFrameEnd
+    MoveSnake_Down:
+    mov ax, [snake_y]
+    dec ax
+    cmp ax, HEIGHT
+    jz GameOver
+    mov [snake_y], ax
+    jmp short UpdateFrameEnd
+    MoveSnake_Up:
     mov ax, [snake_y]
     inc ax
+    cmp ax, 00h
+    jz GameOver
     mov [snake_y], ax
+    jmp short UpdateFrameEnd
 UpdateFrameEnd:
     ret
 
@@ -80,6 +108,31 @@ DrawPixel:
     int 10h
     ret
 
+GetPlayerInput:
+    xor ax, ax
+    int 16h
+    mov bl, 'a'
+    mov cl, 'w'
+    mov dl, 'd'
+    cmp al, bl
+    jz ChangeDirection_Left
+    cmp al, dl
+    jz ChangeDirection_Up
+    cmp al, bl
+    jz ChangeDirection_Right
+    mov [snake_direction], byte SNAKE_DIR_DOWN
+    jmp short GetPlayerInputEnd
+    ChangeDirection_Left:
+    mov [snake_direction], byte SNAKE_DIR_LEFT
+    jmp short GetPlayerInputEnd
+    ChangeDirection_Up:
+    mov [snake_direction], byte SNAKE_DIR_UP
+    jmp short GetPlayerInputEnd
+    ChangeDirection_Right:
+    mov [snake_direction], byte SNAKE_DIR_RIGHT
+GetPlayerInputEnd:
+    ret
+
 CheckCollision:
     mov ax, [snake_x]
     cmp ax, WIDTH
@@ -90,10 +143,11 @@ CheckCollision:
     ret
     
 GameOver:
-    hlt
+    mov ax, 00h
+    call FillScreen
+    jmp GameOver
 
 FillScreen:
-    mov ax, BG_COLOR
     mov cx, WIDTH*HEIGHT ; set cx to 64000 and use it with stosb to set destination register (di) values
     xor di, di
     rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
@@ -101,11 +155,11 @@ FillScreen:
 
 ;; Data Segment
 Data: 
-db 00h                  ; snake_size
-db 01h                  ; snake_direction 
-db 00h                  ; snake_y
+db 01h                  ; snake_size
+db 00h                  ; snake_direction 
+db 10h                  ; snake_y
 db HEIGHT/2,            ; apple_y
-dw 0000h                  ; snake_x
+dw 0010h                ; snake_x
 dw WIDTH/2              ; apple_x
 
 times 510-($-$$) db 0

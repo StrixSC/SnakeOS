@@ -1,1 +1,1 @@
-bash -c "make && make run"
+bash -c "make && make size && make run"
