@@ -56,8 +56,12 @@ DrawPixel:
     mov bx, ax
     mov ax, 16*SLOT_WIDTH
     add bx, ax
-    mov al, APPLE_COLOR
-    mov [es:bx], al
+    start:
+    mov ax, APPLE_COLOR
+    mov cx, SLOT_WIDTH
+    xor di, di
+    mov si, [es:bx]
+    rep stosb
     pop es
     ret
 
@@ -71,24 +75,33 @@ DrawRectangle:
     push VGA_START
     pop es 
     ;; Code here:
-    
-    mov [rect_color], cx
+    mov si, 00h
+    mov di, 00h
     mov [rect_x], bx
-    imul ax, ax, WIDTH*SLOT_WIDTH ; Mul Y * WIDTH * SLOT_WIDTH (320 * 10 * Y)
-    mov bx, ax
-    mov ax, [rect_x]
-    imul ax, SLOT_WIDTH
-    add bx, ax
-    mov [es:bx], cx
-
+    mov [rect_y], ax
+    fill:
+    mov ax, [rect_y]              ; ax = *rect_y
+    add ax, si                    ; ax += i
+    imul ax, ax, WIDTH*SLOT_WIDTH ; ax *= WIDTH*SLOT_WIDTH
+    mov bx, ax                    ; bx = ax
+    mov ax, [rect_x]              ; ax = rect_x
+    imul ax, ax, SLOT_WIDTH       ; ax *= SLOT_WIDTH
+    add ax, di                    ; ax += j
+    add bx, ax                    ; bx += ax
+    mov [es:bx], cx               
+    inc di                        ; j++
+    cmp di, SLOT_WIDTH            ; j < SLOT_WIDTH ? jump fill : continue
+    jb fill                       
+    inc si                        ; i++
+    cmp si, SLOT_WIDTH            ; i < SLOT_WIDTH ? jump fill : continue
+    jb fill 
     ;; End code    
     pop es
     ret                     
 
 GameLoop:
     call FillScreen
-    ; call DrawPixel
-    call DrawPixel
+    call DrawApple
     Delay:
         mov ax, [TIMER]  ; 046C address contains the real clock timer logged by the BIOS
         inc ax           ; increment ax until ax matches the current time + 1 tick. 
@@ -109,5 +122,6 @@ db 00h ; rect_x, rect_y
 
 times 510-($-$$) db 0
 dw 0AA55h
+
 
 
