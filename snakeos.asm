@@ -1,4 +1,4 @@
-bits 16
+bits 16         ; Switch to 16 bit real mode
 org 7C00h
 
 WIDTH           equ 320
@@ -12,34 +12,85 @@ APPLE_COLOR     equ 0Ch
 SNAKE_COLOR     equ 0Ah
 TIMER           equ 046Ch
 VGA_START       equ 0A000h
-variables       equ 0FA00h
-snake_direction equ 0FA00h
-snake_size      equ 0FA00h+1
-snake_y         equ 0FA01h
-snake_x         equ 0FA01h+1
-apple_y         equ 0FA02h
-apple_x         equ 0FA02h+1
-row_index       equ 0FA03h
-col_index       equ 0FA03h+1
-rect_y          equ 0FA04h
-rect_x          equ 0FA04h+1
-rect_color      equ 0FA05h
 
+; Variable addresses:
+snake_size      equ 0FA00h 
+snake_direction equ 0FA01h 
+snake_y         equ 0FA02h 
+apple_y         equ 0FA03h 
+snake_x         equ 0FA04h 
+apple_x         equ 0FA06h 
 
-
-;; SETUP:
 Setup:
     mov ax, 0013h
     int 10h
     push VGA_START
     pop es          ; ES now points to 0A000h (see mode 13h VGA docs to understand video memory)
-    mov di, variables
+    mov di, snake_size
     mov si, Data        
-    mov cl, 6
+    mov cl, 04h
+    rep movsb
+    mov cl, 02h
     rep movsw       ; Move CL data from Data segment to variables
     push es
     pop ds      ; We want DS to point to the data that we just moved.
-    jmp short GameLoop
+
+GameLoop:
+    call FillScreen
+    call UpdateFrame
+    call CheckCollision
+    call DrawApple
+    call DrawSnake
+    Delay:
+        mov ax, [CS:TIMER] 
+        inc ax
+        .wait:
+            cmp [CS:TIMER], ax
+            jl .wait
+    jmp GameLoop
+
+UpdateFrame:
+    mov ax, [snake_direction]
+    cmp ax, 00h
+    jne Snake_MoveVertically
+    mov ax, [snake_x]
+    inc ax
+    mov [snake_x], ax
+    jmp short UpdateFrameEnd
+    Snake_MoveVertically:
+    mov ax, [snake_y]
+    inc ax
+    mov [snake_y], ax
+UpdateFrameEnd:
+    ret
+
+DrawSnake:
+    mov cx, [snake_x]
+    mov dx, [snake_y]
+    mov al, SNAKE_COLOR
+    jmp short DrawPixel
+
+DrawApple:
+    mov cx, [apple_x]
+    mov dx, [apple_y]
+    mov al, APPLE_COLOR
+
+DrawPixel:
+    mov ah, 0ch
+    int 10h
+    ret
+
+CheckCollision:
+    mov ax, [snake_x]
+    cmp ax, WIDTH
+    je GameOver
+    mov ax, [snake_y]
+    cmp ax, HEIGHT
+    je GameOver
+    ret
+    
+GameOver:
+    hlt
 
 FillScreen:
     mov ax, BG_COLOR
@@ -48,80 +99,14 @@ FillScreen:
     rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
     ret
 
-DrawPixel:
-    push es
-    push 0A000h
-    pop es
-    mov ax, 320*SLOT_WIDTH*10
-    mov bx, ax
-    mov ax, 16*SLOT_WIDTH
-    add bx, ax
-    start:
-    mov ax, APPLE_COLOR
-    mov cx, SLOT_WIDTH
-    xor di, di
-    mov si, [es:bx]
-    rep stosb
-    pop es
-    ret
-
-DrawApple:
-    mov ax, [apple_y]
-    mov bx, [apple_x]
-    mov cx, APPLE_COLOR
-
-DrawRectangle:
-    push es
-    push VGA_START
-    pop es 
-    ;; Code here:
-    mov si, 00h
-    mov di, 00h
-    mov [rect_x], bx
-    mov [rect_y], ax
-    fill:
-    mov ax, [rect_y]              ; ax = *rect_y
-    add ax, si                    ; ax += i
-    imul ax, ax, WIDTH*SLOT_WIDTH ; ax *= WIDTH*SLOT_WIDTH
-    mov bx, ax                    ; bx = ax
-    mov ax, [rect_x]              ; ax = rect_x
-    imul ax, ax, SLOT_WIDTH       ; ax *= SLOT_WIDTH
-    add ax, di                    ; ax += j
-    add bx, ax                    ; bx += ax
-    mov [es:bx], cx               
-    inc di                        ; j++
-    cmp di, SLOT_WIDTH            ; j < SLOT_WIDTH ? jump fill : continue
-    jb fill                       
-    inc si                        ; i++
-    cmp si, SLOT_WIDTH            ; i < SLOT_WIDTH ? jump fill : continue
-    jb fill 
-    ;; End code    
-    pop es
-    ret                     
-
-GameLoop:
-    call FillScreen
-    call DrawApple
-    Delay:
-        mov ax, [TIMER]  ; 046C address contains the real clock timer logged by the BIOS
-        inc ax           ; increment ax until ax matches the current time + 1 tick. 
-        .wait:
-        cmp [TIMER], ax
-        jl .wait
-
-    jmp GameLoop
-
 ;; Data Segment
 Data: 
-db 00h, 00h ; snake_size, snake_direction
-db 00h, 00h ; snake_x, snake_y
-db COLS/2, ROWS/2 ; apple_x, apple_y
-db 00h, 00h ; col_index, row_index
-db 00h, 00h ; rect_x, rect_y
-db 00h ; rect_x, rect_y
+db 00h                  ; snake_size
+db 01h                  ; snake_direction 
+db 00h                  ; snake_y
+db HEIGHT/2,            ; apple_y
+dw 0000h                  ; snake_x
+dw WIDTH/2              ; apple_x
 
 times 510-($-$$) db 0
 dw 0AA55h
-
-
-
