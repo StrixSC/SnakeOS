@@ -3,91 +3,92 @@ org 7C00h
 
 WIDTH           equ 320
 HEIGHT          equ 200
-COLS            equ 40 
-ROWS            equ 25
-COL_ROW_SIZE    equ 8
-APPLE_SIZE      equ 10
-BG_COLOR        equ 11h 
+COLS            equ 32 
+ROWS            equ 20
+SLOT_WIDTH      equ 10
+APPLE_SIZE      equ 1
+BG_COLOR        equ 11h
 APPLE_COLOR     equ 0Ch
 SNAKE_COLOR     equ 0Ah
 TIMER           equ 046Ch
+VGA_START       equ 0A000h
 variables       equ 0FA00h
-snake_size      equ 0FA00h      ; Each memory address is a double word
-snake_dx        equ 0FA01h
-snake_dy        equ 0FA02h
-apple_y         equ 0FA03h
-snake_y         equ 0FA04h
-apple_x         equ 0FA05h
-snake_x         equ 0FA06h
+snake_direction equ 0FA00h
+snake_size      equ 0FA00h+1
+snake_y         equ 0FA01h
+snake_x         equ 0FA01h+1
+apple_y         equ 0FA02h
+apple_x         equ 0FA02h+1
+row_index       equ 0FA03h
+col_index       equ 0FA03h+1
+rect_y          equ 0FA04h
+rect_x          equ 0FA04h+1
+rect_color      equ 0FA05h
+
+
 
 ;; SETUP:
 Setup:
     mov ax, 0013h
     int 10h
-    push 0A000h
+    push VGA_START
     pop es          ; ES now points to 0A000h (see mode 13h VGA docs to understand video memory)
     mov di, variables
     mov si, Data        
-    mov cl, 5           
-    rep movsb       ; Moves the data from si to di and increments both si and di  
-    mov cl, 2
-    rep movsw
+    mov cl, 6
+    rep movsw       ; Move CL data from Data segment to variables
     push es
     pop ds      ; We want DS to point to the data that we just moved.
     jmp short GameLoop
 
 FillScreen:
-    mov ax, [snake_size]
+    mov ax, BG_COLOR
     mov cx, WIDTH*HEIGHT ; set cx to 64000 and use it with stosb to set destination register (di) values
     xor di, di
     rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
     ret
 
-DrawApple:
-    mov cx, [apple_x]
-    sub cx, APPLE_SIZE/2
-    mov [apple_x], cx
-    mov dx, [apple_y]
-    sub dx, APPLE_SIZE/2
-    mov [apple_y], dx
-    mov ax, 0c0ch
-
-DrawSquare:
-    int 10h
-    inc cx
-    mov bx, cx
-    sub bx, [apple_x]
-    cmp bx, APPLE_SIZE
-    jb DrawSquare
-    mov cx, [apple_x]
-    inc dx
-    mov bx, dx
-    sub bx, [apple_y]
-    cmp bx, APPLE_SIZE
-    jb DrawSquare
+DrawPixel:
+    push es
+    push 0A000h
+    pop es
+    mov ax, 320*SLOT_WIDTH*10
+    mov bx, ax
+    mov ax, 16*SLOT_WIDTH
+    add bx, ax
+    mov al, APPLE_COLOR
+    mov [es:bx], al
+    pop es
     ret
 
-; DrawSquare:
-;     xor bx, bx
-;     jmp short draw_cols
-;     draw_rows:
-;         inc bx
-;         push bx
-;         cmp [sp], [sp-1]
-;         draw_cols:
-;             cmp bx, [sp]
-;             je draw_rows
-;             push ax
-;             int 10h
-;             pop ax
-;             inc cx
-;             jmp draw_cols
-;     reset:
-;         pop bx
+DrawApple:
+    mov ax, [apple_y]
+    mov bx, [apple_x]
+    mov cx, APPLE_COLOR
+
+DrawRectangle:
+    push es
+    push VGA_START
+    pop es 
+    ;; Code here:
+    
+    mov [rect_color], cx
+    mov [rect_x], bx
+    imul ax, ax, WIDTH*SLOT_WIDTH ; Mul Y * WIDTH * SLOT_WIDTH (320 * 10 * Y)
+    mov bx, ax
+    mov ax, [rect_x]
+    imul ax, SLOT_WIDTH
+    add bx, ax
+    mov [es:bx], cx
+
+    ;; End code    
+    pop es
+    ret                     
 
 GameLoop:
-    call FillScreen ; After filling screen, edi -> 0FA00h
-    call DrawApple
+    call FillScreen
+    ; call DrawPixel
+    call DrawPixel
     Delay:
         mov ax, [TIMER]  ; 046C address contains the real clock timer logged by the BIOS
         inc ax           ; increment ax until ax matches the current time + 1 tick. 
@@ -99,14 +100,14 @@ GameLoop:
 
 ;; Data Segment
 Data: 
-db BG_COLOR ; snake_size
-db 01h ; snake_dx
-db 01h ; snake_dy
-db HEIGHT/2 ; apple_y
-db 00h ; snake_y
-dw WIDTH/2 ; apple_x
-db 00h ; snake_x
+db 00h, 00h ; snake_size, snake_direction
+db 00h, 00h ; snake_x, snake_y
+db COLS/2, ROWS/2 ; apple_x, apple_y
+db 00h, 00h ; col_index, row_index
+db 00h, 00h ; rect_x, rect_y
+db 00h ; rect_x, rect_y
 
 times 510-($-$$) db 0
 dw 0AA55h
+
 
