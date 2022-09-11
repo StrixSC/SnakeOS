@@ -1,6 +1,8 @@
 # Snake OS
 
-## Setup
+[WIP]
+
+## Setup 
 
 ```
 make
