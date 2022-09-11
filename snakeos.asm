@@ -42,10 +42,11 @@ Setup:
 GameLoop:
     mov ax, BG_COLOR
     call FillScreen
-    call GetPlayerInput
-    call UpdateFrame
     call DrawApple
     call DrawSnake
+
+    call UpdateFrame
+    call GetPlayerInput
     Delay:
         mov ax, [CS:TIMER] 
         inc ax
@@ -67,28 +68,28 @@ UpdateFrame:
     cmp ax, 00h
     jz GameOver
     mov [snake_x], ax
-    jmp short UpdateFrameEnd
+    jmp UpdateFrameEnd
     MoveSnake_Right:
     mov ax, [snake_x]
     inc ax
     cmp ax, WIDTH
     jz GameOver
     mov [snake_x], ax
-    jmp short UpdateFrameEnd
+    jmp UpdateFrameEnd
     MoveSnake_Down:
     mov ax, [snake_y]
     dec ax
     cmp ax, HEIGHT
     jz GameOver
     mov [snake_y], ax
-    jmp short UpdateFrameEnd
+    jmp UpdateFrameEnd
     MoveSnake_Up:
     mov ax, [snake_y]
     inc ax
     cmp ax, 00h
     jz GameOver
     mov [snake_y], ax
-    jmp short UpdateFrameEnd
+    jmp UpdateFrameEnd
 UpdateFrameEnd:
     ret
 
@@ -96,7 +97,7 @@ DrawSnake:
     mov cx, [snake_x]
     mov dx, [snake_y]
     mov al, SNAKE_COLOR
-    jmp short DrawPixel
+    jmp DrawPixel
 
 DrawApple:
     mov cx, [apple_x]
@@ -111,23 +112,20 @@ DrawPixel:
 GetPlayerInput:
     xor ax, ax
     int 16h
-    mov bl, 'a'
-    mov cl, 'w'
-    mov dl, 'd'
-    cmp al, bl
+    cmp al, 'a'
     jz ChangeDirection_Left
-    cmp al, dl
+    cmp al, 'w'
     jz ChangeDirection_Up
-    cmp al, bl
+    cmp al, 'd'
     jz ChangeDirection_Right
     mov [snake_direction], byte SNAKE_DIR_DOWN
-    jmp short GetPlayerInputEnd
+    jmp GetPlayerInputEnd
     ChangeDirection_Left:
     mov [snake_direction], byte SNAKE_DIR_LEFT
-    jmp short GetPlayerInputEnd
+    jmp GetPlayerInputEnd
     ChangeDirection_Up:
     mov [snake_direction], byte SNAKE_DIR_UP
-    jmp short GetPlayerInputEnd
+    jmp GetPlayerInputEnd
     ChangeDirection_Right:
     mov [snake_direction], byte SNAKE_DIR_RIGHT
 GetPlayerInputEnd:
