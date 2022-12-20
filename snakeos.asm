@@ -1,234 +1,380 @@
-bits 16 ; Switch to 16 bit real mode
+bits 16 
 org 7C00h
 
-WIDTH               equ 320
-HEIGHT              equ 200
-COLS                equ 32
-ROWS                equ 20
-SLOT_WIDTH          equ 10
-APPLE_SIZE          equ 1
-BG_COLOR            equ 11h
-APPLE_COLOR         equ 0Ch
-SNAKE_COLOR         equ 0Ah
-TIMER               equ 046Ch
-VGA_START           equ 0A000h
-SNAKE_DIR_UP        equ 00h
-SNAKE_DIR_DOWN      equ 01h
-SNAKE_DIR_RIGHT     equ 10h
-SNAKE_DIR_LEFT      equ 11h
+; Set the segment registers
+mov ax, 0x10  
+mov ds, ax    
+mov es, ax    
+; Set the video mode
+mov ah, 0x00  
+mov al, 0x13  
+int 0x10
 
-; Variable addresses:
-snake_size          equ 0FA00h
-snake_direction     equ 0FA01h
-snake_y             equ 0FA02h
-apple_y             equ 0FA03h
-snake_x             equ 0FA04h
-apple_x             equ 0FA06h
+; Set the snake starting position
+mov dword [snake_x], 160 
+mov dword [snake_y], 100 
 
-Setup:
-    mov ax, 0013h
-    int 10h
-    push VGA_START
-    pop es  ; ES now points to 0A000h (see mode 13h VGA docs to understand video memory)
-    mov di, snake_size
-    mov si, Data
-    mov cl, 04h
-    rep movsb
-    mov cl, 02h
-    rep movsw ; Move CL data from Data segment to variables
-    push es
-    pop ds ; We want DS to point to the data that we just moved.
+; Set the direction of the snake (1=right)
+mov byte [direction], 2
 
-GameLoop:
-    mov ax, BG_COLOR
-    call FillScreen
-    call DrawApple
-    call DrawSnake
-    call UpdateFrame
-    call CheckForCollision
-    call GetPlayerInput
-    Delay:
-        mov ax, [CS:TIMER] 
-        inc ax
-        .wait:
-            cmp [CS:TIMER], ax
-            jl .wait
-    jmp GameLoop
+; Set the length of the snake
+mov byte [length], 5     ; Set the starting length of the snake to 5
 
-UpdateFrame:
-    mov ax, [snake_direction]
-    cmp ax, SNAKE_DIR_DOWN
-    jz MoveSnake_Down
-    cmp ax, SNAKE_DIR_UP
-    jz MoveSnake_Up
-    cmp ax, SNAKE_DIR_RIGHT
-    jz MoveSnake_Right
-    mov ax, [snake_x]
-    dec ax
-    cmp ax, 00h
-    jz GameOver
-    mov [snake_x], ax
-    jmp UpdateFrameEnd
-MoveSnake_Right:
-    mov ax, [snake_x]
-    inc ax
-    cmp ax, WIDTH
-    jz GameOver
-    mov [snake_x], ax
-    jmp UpdateFrameEnd
-MoveSnake_Down:
-    mov ax, [snake_y]
-    dec ax
-    cmp ax, HEIGHT
-    jz GameOver
-    mov [snake_y], ax
-    jmp UpdateFrameEnd
-MoveSnake_Up:
-    mov ax, [snake_y]
-    inc ax
-    cmp ax, 00h
-    jz GameOver
-    mov [snake_y], ax
-    jmp UpdateFrameEnd
-UpdateFrameEnd:
-    ret
+; Set the speed of the snake
+mov byte [delay], 50     ; Set the delay between movements to 50 milliseconds
 
-DrawSnake:
-    mov cx, [snake_x]
-    mov dx, [snake_y]
-    mov al, SNAKE_COLOR
-    call DrawPixel
-    mov ax, [snake_size]
-    dec ax
-    mov [snake_size], ax
-    mov ax, [snake_direction]
-    cmp ax, SNAKE_DIR_RIGHT
-    jz DrawSnake_Right
-    cmp ax, SNAKE_DIR_LEFT
-    jz DrawSnake_Left
-    cmp ax, SNAKE_DIR_UP
-    jz DrawSnake_Up
-    mov dx, [snake_y]
-    dec dx
-    mov [snake_y], dx
-    jmp DrawSnakeEnd
-DrawSnake_Right:
-    mov cx, [snake_x]
-    inc cx
-    mov [snake_x], cx
-    jmp DrawSnakeEnd
-DrawSnake_Left:
-    mov cx, [snake_x]
-    dec cx
-    mov [snake_x], cx
-    jmp DrawSnakeEnd
-DrawSnake_Up:
-    mov dx, [snake_y]
-    inc dx
-    mov [snake_y], dx
-    jmp DrawSnakeEnd
-DrawSnakeEnd:
-    ret
+; Set the score
+mov byte [score], 0
 
-DrawApple:
-    mov cx, [apple_x]
-    mov dx, [apple_y]
-    mov al, APPLE_COLOR
-    call DrawPixel
-    ret
+; Set the apple position
+call set_apple 
+jmp main_loop
+; Main loop
 
-DrawPixel:
-    mov ah, 0ch
-    int 10h
-    ret
+main_loop:
+    call move_snake      
+    call check_apple       
+    call draw_snake       
+    call draw_apple        
+    call draw_score       
+    call check_collision  
+    call delay_func            
+    jmp main_loop         
 
-GetPlayerInput:
-    xor ax, ax
-    int 16h
-    cmp al, 'a'
-    jz ChangeDirection_Left
-    cmp al, 'w'
-    jz ChangeDirection_Up
-    cmp al, 'd'
-    jz ChangeDirection_Right
-    mov [snake_direction], byte SNAKE_DIR_DOWN
-    jmp GetPlayerInputEnd
+; Function to move the snake
+move_snake:
+    ; Save the current position of the snake's head
+    mov bx, [snake_x]
+    mov cx, [snake_y]
     
-ChangeDirection_Left:
-    mov [snake_direction], byte SNAKE_DIR_LEFT
-    jmp GetPlayerInputEnd
-
-ChangeDirection_Up:
-    mov [snake_direction], byte SNAKE_DIR_UP
-    jmp GetPlayerInputEnd
-
-ChangeDirection_Right:
-    mov [snake_direction], byte SNAKE_DIR_RIGHT
-    jmp GetPlayerInputEnd
+    ; Update the position of the snake's head based on the direction
+    cmp byte [direction], 1  ; Check if the direction is right (1)
+    jne move_left 
+    add bx, 8     
+    jmp update_position ; Jump to the "update_position" label
     
-GetPlayerInputEnd:
-    ret
+move_left:
+    cmp byte [direction], 2  ; Check if the direction is left (2)
+    jne move_up   
+    sub bx, 8     
+    jmp update_position ; Jump to the "update_position" label
+    
+move_up:
+    cmp byte [direction], 3  ; Check if the direction is up (3)
+    jne move_down 
+    sub cx, 8     
+    jmp update_position ; Jump to the "update_position" label
 
-CheckForCollision:
-    mov ax, [apple_x]
-    cmp ax, [snake_x]
-    jz Collision
-    mov ax, [apple_y]
-    cmp ax, [snake_y]
-    jz Collision
-    ret
-    Collision:
-    mov ax, [snake_size]
-    inc ax
-    mov [snake_size], ax
-    call GenerateApple
-    ret
+move_down:
+    cmp byte [direction], 4  ; Check if the direction is down (4)
+    jne update_position ; If the direction is not down, jump to the "update_position" label
+    add cx, 8     
 
-GenerateApple:
-    mov ax, APPLE_SIZE
-    mov bx, SLOT_WIDTH
-    mul bx
-    mov [apple_x], ax
-    mov ax, APPLE_SIZE
-    mov bx, SLOT_WIDTH
-    mul bx
-    mov [apple_y], ax
-    ret
+; Update the position of the snake
+update_position:
+    mov [snake_x], bx  ; Set the new X position of the snake
+    mov [snake_y], cx  ; Set the new Y position of the snake
+    ret          
 
-FillScreen:
-    mov cx, WIDTH*HEIGHT ; set cx to 64000 and use it with stosb to set destination register (di) values
-    xor di, di
-    rep stosb   ; change every address between di and es (so 0000:A000) to the value at al
-    ret
+; Function to check for collision
+check_collision:
+    ; Check if the snake has collided with the edges of the screen
+    cmp dword [snake_x], 8  
+    jl game_over      
+    cmp dword [snake_x], 312
+    jg game_over      
+    cmp dword [snake_y], 8  
+    jl game_over      
+    cmp dword [snake_y], 192
+    jg game_over      
 
-GameOver:
-    mov ax, 0013h
-    int 10h
-    mov si, GameOverText
-    call PrintString
-    jmp GameOverEnd
-GameOverEnd:
-    ret
+    ; Check if the snake has collided with itself
+    mov bx, [snake_x] 
+    mov cx, [snake_y] 
+    
+    mov si, snake_positions  ; Set the index register to the start of the snake positions array
+    mov di, si            
+    
+collision_loop:
+    cmp si, di    
+    je check_done  
+    
+    mov ax, [si]  
+    cmp ax, bx    
+    jne check_y    
+    
+    mov ax, [si+2]
+    cmp ax, cx    
+    jne check_y    
+    
+    jmp game_over 
 
-PrintString:
-    lodsb
-    cmp al, 0
-    je PrintStringEnd
-    mov ah, 0ch
-    int 10h
-    jmp PrintString
-    PrintStringEnd:
-    ret
+check_y:
+    add si, 4     
+    jmp collision_loop   ; Jump back to the start of the loop
 
-GameOverText db 'Game Over', 0
+check_done:
+    ret           
 
-Data:
-    dd          0100h
-    dd          SNAKE_DIR_DOWN
-    dd          0100h
-    dd          0100h
-    dd          0100h
-    dd          0100h
+; Function to check if the snake has eaten the apple
+check_apple:
+    ; Check if the snake's head is in the same position as the apple
+    mov bx, [snake_x]    
+    cmp bx, [apple_x]     
+    jne check_done2
+    mov cx, [snake_y]    
+    cmp cx, [apple_y]     
+    jne check_done2
+    
+    ; If the snake's head is in the same position as the apple, update the snake's position and set a new apple position
+    mov bx, [snake_x]    
+    mov cx, [snake_y]    
+    mov si, snake_positions  ; Set the index register to the start of the snake positions array
+    mov ax, [length]
+    imul ax, 4
+    add si, ax   ; Increment the index by the length of the snake (each position is 4 bytes)
+    mov [si], bx   
+    mov [si+2], cx 
+    inc byte [length]   
+    call set_apple  
+    inc dword [score]    
 
-times 510-($-$$) db 0
-dw 0xAA55
+check_done2:
+    ret            
+
+; Function to draw the snake
+draw_snake:
+    mov si, snake_positions  ; Set the index register to the start of the snake positions array
+    mov di, si            
+    
+    draw_loop:
+    mov bx, [si]  
+    mov cx, [si+2]
+    call draw_pixel     ; Call the function to draw a pixel at the current position
+    
+    add si, 4     
+    cmp si, di    
+    jne draw_loop 
+    
+    ret           
+    
+; Function to draw the apple
+draw_apple:
+    mov bx, [apple_x]    ; Load the X position of the apple
+    mov cx, [apple_y]    ; Load the Y position of the apple
+    call draw_pixel     ; Call the function to draw a pixel at the current position
+    ret           
+    
+; Function to draw the score
+draw_score:
+    mov bx, 0     
+    mov cx, 0     
+    mov ax, [score]     ; Load the current score
+    call draw_number    ; Call the function to draw the score
+    ret           
+
+; Function to draw a pixel
+draw_pixel:
+    mov ah, 0x0c  
+    int 0x10      
+    ret           
+
+; Function to draw a number
+draw_number:
+    ; Check if the number is greater than 9
+    cmp ax, 9     
+    jle draw_digit
+    
+    ; Divide the number by 10 and draw the second digit
+    mov dx, 0     
+    div word [ten]
+    add dl, '0'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+; Draw the first digit
+draw_digit:
+    add al, '0'   
+    mov ah, 0x0e  
+    int 0x10      
+    ret           
+
+; Function to delay the game
+delay_func:
+    mov bx, [delay]     ; Load the delay value
+delay_loop:
+    dec bx        
+    jnz delay_loop
+    ret           
+
+; Function to generate a random number
+random:
+    mov ah, 0x00  
+    int 0x1a      
+    ret           
+    
+; Data definitions
+snake_positions  db 20    
+snake_x          dw 0     
+snake_y          dw 0     
+direction        db 0     
+length           dw 0     
+delay            dw 0     
+score            dw 0     
+apple_x           dw 0     
+apple_y           dw 0     
+ten              dw 10    
+
+; Interrupt handler to handle key input
+keyboard_handler:
+    mov ah, 0x01  
+    int 0x16      
+    
+    cmp al, 0x4b  
+    je update_direction  ;right arrow
+    cmp al, 0x4d  
+    je update_direction  ;left arrow
+    cmp al, 0x48  
+    je update_direction  ;up arrow
+    cmp al, 0x50  
+    je update_direction  ;down arrow
+    
+    ; If the key pressed is not an arrow key, do nothing
+    
+    ret           
+
+; Function to update the direction of the snake
+update_direction:
+    cmp al, 0x4b  
+    je set_direction    ;right arrow
+    cmp al, 0x4d  
+    je set_direction    ;left arrow
+    cmp al, 0x48  
+    je set_direction    ;up arrow
+    cmp al, 0x50  
+    je set_direction    ;down arrow
+    ret           
+    
+; Function to set the direction of the snake
+set_direction:
+    mov [direction], al ; Set the direction based on the key pressed
+    ret           
+
+; Function to set the position of the apple
+set_apple:
+    call random   
+    mov bx, ax    
+    and bx, 31    
+    shl bx, 3     
+    add bx, 16    
+    mov [apple_x], bx    ; Set the X position of the apple
+    
+    call random   
+    mov cx, ax    
+    and cx, 15    
+    shl cx, 3     
+    add cx, 8     
+    mov [apple_y], cx    ; Set the Y position of the apple
+    
+    ret           
+
+; Function to clear the screen
+clear_screen:
+    mov ah, 0x00  
+    mov al, 0x03  
+    int 0x10      
+    ret           
+
+; ; Function to display the game over screen
+game_over:
+    call clear_screen   ; Call the function to clear the screen
+    
+    mov bx, 0     
+    mov cx, 10    
+    mov ax, 'G'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'A'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'M'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'E'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    inc bx        
+    mov ax, 'O'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'V'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'E'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'R'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, '!'   
+    mov ah, 0x0e  
+    int 0x10      
+
+; Display the score
+    mov bx, 30    
+    mov cx, 13    
+    mov ax, 'S'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'C'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'O'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'R'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    mov ax, 'E'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    mov bx, 40    
+    mov ax, ':'   
+    mov ah, 0x0e  
+    int 0x10      
+    
+    inc bx        
+    inc bx        
+    mov ax, [score]     ; Load the current score
+    call draw_number    ; Call the function to draw the score
+    
+    hlt           
+
+; End of program
+times 510-($-$$) db 0 ; Pad the program with zeros to fill a 512-byte sector
+dw 0xaa55       

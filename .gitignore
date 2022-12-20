@@ -3,3 +3,5 @@
 *.o
 build/
 snakeos
+notes.txt
+snakeos2.asm
